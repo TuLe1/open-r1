@@ -33,6 +33,7 @@ from open_r1.rewards import (
     reasoning_steps_reward,
 )
 from open_r1.utils.callbacks import get_callbacks
+from open_r1.utils.logging import init_wandb_training
 from trl import GRPOTrainer, ModelConfig, ScriptArguments, TrlParser, get_peft_config
 
 
@@ -46,7 +47,7 @@ class GRPOScriptArguments(ScriptArguments):
 
     Args:
         reward_funcs (`list[str]`):
-            List of reward functions. Possible values: 'accuracy', 'format', 'reasoning_steps', 'cosine'.
+            List of reward functions. Possible values: 'accuracy', 'format', 'reasoning_steps', 'cosine', 'repetition_penalty'.
         cosine_min_value_wrong (`float`):
             Minimum reward for cosine scaling for wrong answers.
         cosine_max_value_wrong (`float`):
@@ -60,9 +61,9 @@ class GRPOScriptArguments(ScriptArguments):
     """
 
     reward_funcs: list[str] = field(
-        default_factory=lambda: ["accuracy", "format", "reasoning_steps", "cosine"],
+        default_factory=lambda: ["accuracy", "format"],
         metadata={
-            "help": "List of reward functions. Possible values: 'accuracy', 'format', 'reasoning_steps', 'cosine'"
+            "help": "List of reward functions. Possible values: 'accuracy', 'format', 'reasoning_steps', 'cosine', 'repetition_penalty'"
         },
     )
     cosine_min_value_wrong: float = field(
@@ -130,7 +131,7 @@ def main(script_args, training_args, model_args):
     )
     logger.info(f"Model parameters {model_args}")
     logger.info(f"Script parameters {script_args}")
-    logger.info(f"Data parameters {training_args}")
+    logger.info(f"Training parameters {training_args}")
 
     # Check for last checkpoint
     last_checkpoint = None
@@ -138,6 +139,9 @@ def main(script_args, training_args, model_args):
         last_checkpoint = get_last_checkpoint(training_args.output_dir)
     if last_checkpoint is not None and training_args.resume_from_checkpoint is None:
         logger.info(f"Checkpoint detected, resuming training at {last_checkpoint=}.")
+
+    if "wandb" in training_args.report_to:
+        init_wandb_training(training_args)
 
     # Load the dataset
     dataset = load_dataset(script_args.dataset_name, name=script_args.dataset_config)
